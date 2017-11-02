@@ -73,10 +73,11 @@ namespace TIES322_udp_app
                 {
                     if (seqDatagram == receiverSeq) //test if single seq is enough
                     {
-                        RaiseOnDeliver(InvokeReason.Receiver, str);                        
+                        RaiseOnDeliver(InvokeReason.Receiver, str);
+                        RaiseOnDeliver(InvokeReason.Debug, "Sent ACK #" + receiverSeq.ToString());
                         RdtSend(rdt.MakeAck(receiverSeq), true);
                         receiverSeq = rdt.incmod(receiverSeq, 2);
-                        RaiseOnDeliver(InvokeReason.Debug, "Sent ACK #" + receiverSeq.ToString());
+                        
                     }
                     else
                     {
