@@ -1,88 +1,206 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
 using System.Windows.Forms;
+using System.Threading;
+using System.Net;
+using System.Timers;
+using System.Diagnostics;
+using System.Net.Sockets;
+using System.Collections.Specialized;
+using System.Data.HashFunction.CRCStandards;
 
 namespace TIES322_udp_app
 {
-    class VirtualSocket
+    class VirtualSocket : EventArgs
     {
-        public int _sendPort;
-        public int _receivePort;
-        public Boolean IsListening = false;
-        IPEndPoint _serverEndPoint;
-        IPEndPoint _remoteEndPoint;
-        //UdpClient udp = new UdpClient("localhost", 0);
-        Socket socket;
-        EndPoint Remote;
-        //public byte[] lastincoming = new byte[1024];
-        int recv;
+        int senderSocket, receiverSocket;
+        UdpClient socket;
         Random rnd = new Random();
-        public VirtualSocket(int port, int port2, Boolean isServer = false)
+        bool listen = false;
+        
+        // Specify handlers in classes listening to events from this class
+        //public delegate void ReceiveHandler(VirtualSocket vc, )
+        public event HandleDatagramDelegate OnSend;
+        public event HandleDatagramDelegate OnReceive;
+        public event DeliverData OnDeliver;
+
+        public VirtualSocket(int senderSocket, int receiverSocket)
+        {
+            this.senderSocket = senderSocket;
+            this.receiverSocket = receiverSocket;
+            //this.OnSend += new HandleDatagramDelegate(this.Send);
+
+        }
+        public async void Send(byte[] datagram)
+        {
+           OnSend?.Invoke(datagram);
+           await socket.SendAsync(datagram, datagram.Length, "localhost", receiverSocket);
+           
+        }
+        /// <summary>
+        /// Initialize and start receiveing from UdpClient
+        /// </summary>
+        public void Start()
+        {
+            listen = true;
+            socket = new UdpClient(senderSocket);
+            Receive();
+        }
+        public async void Receive()
         {
             try
             {
-                _serverEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), port);
-                _receivePort = _serverEndPoint.Port;
-                _sendPort = port2;
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                socket.Bind(_serverEndPoint);
-
-                _remoteEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), port2);
-                Remote = (EndPoint)(_remoteEndPoint);
-                if (isServer)
+                UdpReceiveResult receivedResults;
+                while (listen)
                 {
-                    //ReceiveLoop();
-                    new Thread(() => ReceiveLoop()).Start();
-                }
-            }catch(Exception e)
-            {
-                MessageBox.Show(e.ToString());
-            }
-        }
-        public void StartListening()
-        {
-            Thread listingthread = new Thread(() => ReceiveLoop());
-            listingthread.Start();
-            IsListening = true;
-        }
-
-        public void sendBytes(byte[] data)
-        {
-            byte[] tmp = new byte[data.Length + 1];
-            data.CopyTo(tmp, 0);
-            tmp[tmp.GetUpperBound(0)] = checksum.GetChecksum(data);
-            socket.SendTo(tmp, Remote);
-            //MessageBox.Show(Encoding.ASCII.GetString(data));
-            //socket.Send(tmp);
-        }
-
-        void ReceiveLoop()
-        {
-            byte[] data = new byte[1024];
-            while (true) {
-                recv = socket.ReceiveFrom(data, ref Remote);
-
-                Array.Resize(ref data, recv);
-                if (rnd.Next(100) >= Config.packetDropProp)
-                {
-                    if(rnd.Next(101) < Config.bitErrorProp)
+                    receivedResults = await socket.ReceiveAsync();
+                    var data = receivedResults.Buffer;
+                    if (rnd.Next(100) >= Config.packetDropProp)
                     {
-                        data = checksum.InsertBitError(data);
-                  //    MessageBox.Show("BitError");
+                        if (rnd.Next(101) < Config.bitErrorProp)
+                        {
+                            data = InsertBitError(data);
+                            //textBox_Server.AppendText("[] VS inserted bit error []" + Environment.NewLine);
+                            OnDeliver?.Invoke(InvokeReason.Debug, "Receving socket mutilated a datagram");
+                        }
+                        await Task.Delay(rnd.Next(Config.delayAmount * 1000));
+
+                        OnReceive?.Invoke(data);
+
                     }
-                    Thread.Sleep(rnd.Next(Config.delayAmount));
-                    new Thread(() => new GotPackets(data)).Start();
-                    Thread.Sleep(300);
+                    else
+                    {
+                        OnDeliver?.Invoke(InvokeReason.Debug, "Receving socket dropped a datagram");
+                    }
                 }
             }
-
+            catch (ObjectDisposedException e)
+            {
+                /*Short search revealed no easy way to cancel 
+                  on going ReceiveAsync other than to catch this exception...*/
+                MessageBox.Show("Closed socket.");
+            }
         }
+        public static byte[] InsertBitError(byte[] input)
+        {
+            Random rnd = new Random();
+            int byteIndex = rnd.Next(input.Count());
+            byte mask = (byte)(1 << rnd.Next(8));
+            input[byteIndex] ^= mask;
 
+            return input;
+        }
+        
+        public void Close()
+        {
+           // try
+           // {
+           //     listen = false;
+           //     socket.Close();
+           // }
+           // catch (ObjectDisposedException e)
+           // {
+           //     //Short search revealed no easy way to cancel 
+           //     //  on going ReceiveAsync other than to catch this exception...
+           //     MessageBox.Show("Closing socket.");
+           // }
+           // finally
+           // {
+           //     socket.Close();
+           //} 
+        }
+    }
+    public class RdtUtils
+    {
+        CRC8 crc8;
+
+        public RdtUtils()
+        {
+            crc8 = new CRC8();
+        }
+        public byte[] MakeDatagram(byte[] data, int seqNum)
+        {
+            byte[] datagram = new byte[data.Length + 2];
+            datagram[0] = (byte)seqNum;
+            data.CopyTo(datagram, 1);
+            datagram[datagram.Length - 1] = CalcCRC8(datagram.Take(datagram.Length -1).ToArray());
+            return datagram;
+        }
+        public byte[] MakeAck(int seqNum, bool isNack = false)
+        {
+            string ackNackString = isNack ? "NACK" : "ACK";
+            return MakeDatagram(Encoding.UTF8.GetBytes(ackNackString), seqNum);
+        }
+        public string GetDatagramContentString(byte[] datagram)
+        {
+            return Encoding.UTF8.GetString(new List<byte>(datagram).GetRange(1, datagram.Length - 2).ToArray());
+        }
+        public int GetSeqNum(byte[] datagram)
+        {
+            return (int)datagram[0];
+        }
+        public byte CalcCRC8(byte[] datagram)
+        {
+            return GetCRC8Chksum(datagram);
+        }
+        public bool IsOk(byte[] datagram)
+        {
+            return CheckCRC8Chksum(datagram);
+        }
+        //I started this with meaning to use example protocol, hence ack packets are
+        //identified by string comparison... How I regret that choice. Results in 
+        //annoying code and corner cases where message "ACK" will break this prog :(
+        public bool IsAck(byte[] datagram)
+        {
+            return GetDatagramContentString(datagram) == "ACK" ? true : false;
+        }
+        public bool IsNack(byte[] datagram)
+        {
+            //return !IsAck(datagram);
+            return GetDatagramContentString(datagram) == "NACK" ? true : false;
+        }
+        private byte GetCRC8Chksum(byte[] input)
+        {
+            return crc8.ComputeHash(input)[0];
+        }
+        private bool CheckCRC8Chksum(byte[] input)
+        {
+            
+            byte[] tmp = input.Take(input.Length - 1).ToArray();
+            byte chksum = input.Last();
+            byte tmp2 = GetCRC8Chksum(tmp);
+            return (tmp2 == chksum);
+        }
+        public int incmod(int from, int window)
+        {
+            return from + 1 == window ? 0 : from + 1;
+        }
+        public int decmod(int from,int window)
+        {
+            return from - 1 < 0 ? window - 1 : from - 1;
+        }
+        public int distmod(int from, int to, int window)
+        {
+            /* |-----window-----|
+             *  -->to    from---
+             *     from----->to
+             *  Return distance traveled clockwise with respet to mod N
+             *  mostly used to see if senders window is full of unack'd
+             *  datagrams
+             */ 
+            int n = 0;
+            while(from != to)
+            {
+                from = incmod(from, window);
+                n++;
+            }
+            return n;
+        }
     }
 }

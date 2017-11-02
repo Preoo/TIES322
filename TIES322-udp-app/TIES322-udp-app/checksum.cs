@@ -9,39 +9,7 @@ namespace TIES322_udp_app
 {
     static class checksum
     {
-        public static byte GetChecksum(byte[] input)
-        {
-            /*Impl. from http://www.sunshine2k.de/articles/coding/crc/understanding_crc.html */
-            const byte magic = 0x1D;
-            byte crc = 0; 
-
-            foreach (byte currByte in input)
-            {
-                crc ^= currByte;
-
-                for (int i = 0; i < 8; i++)
-                {
-                    if ((crc & 0x80) != 0)
-                    {
-                        crc = (byte)((crc << 1) ^ magic);
-                    }
-                    else
-                    {
-                        crc <<= 1;
-                    }
-                }
-            }
-
-            return crc;
-        }
-        public static Boolean CheckChecksum(byte[] input)
-        {
-            
-            /*input is of form |seq<1byte>|data<x bytes string>|chksum<1byte>*/
-            byte[] tmp = input.Take(input.Count() - 1).ToArray();
-            byte chksum = input.Last();
-            return (checksum.GetChecksum(tmp) == chksum);
-        }
+        
         public static byte[] InsertBitError(byte[] input)
         {
             Random rnd = new Random();
@@ -76,21 +44,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
         CRC8 crc8instance;
-        byte[] checksum;
+
+        //byte[] checksum;
         public crc8lib() {
             /*crc8 lib*/
-            crc8instance = new CRC8();
+            //crc8instance = new CRC8();
             
         }
         public byte GetCRC8Chksum(byte[] input)
         {
-            return crc8instance.ComputeHash(input)[0];
+            //crc8instance = new CRC8();
+            return crc8instance.ComputeHash(input).First();
         }
-        public Boolean CheckCRC8Chksum(byte[] input)
+        public bool CheckCRC8Chksum(byte[] input)
         {
-            byte[] tmp = input.Take(input.Count() - 1).ToArray();
+            //crc8instance = new CRC8();
+            byte[] tmp = input.Take(input.Length - 1).ToArray();
             byte chksum = input.Last();
-            return (crc8instance.ComputeHash(tmp)[0] == chksum);
+            byte tmp2 = GetCRC8Chksum(tmp);
+            return (tmp2 == chksum);
         }
     }
 }
