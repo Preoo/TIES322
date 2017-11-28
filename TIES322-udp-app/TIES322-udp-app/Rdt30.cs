@@ -9,7 +9,7 @@ namespace TIES322_udp_app
     {
         private static System.Windows.Forms.Timer timer;
         TimerDatagram scheduledDatagram;
-
+        
         public Rdt30(VirtualSocket client):base()
         {
             socket = client;
@@ -29,14 +29,14 @@ namespace TIES322_udp_app
             bool isAck = rdt.IsAck(datagram);
             bool isNack = rdt.IsNack(datagram);
             int seqDatagram = rdt.GetSeqNum(datagram);
-            //Switch is unneeded here.
+            
             if (state == (int)STATE.WaitingForAck)
             {
                 if (isOk && isAck)
                 {
                     if(seqDatagram == senderSeq)
                     {
-                        senderSeq = rdt.incmod(senderSeq, 2);
+                        senderSeq = rdt.Incmod(senderSeq, flipBit);
                         StopTimer();
                         if (messageBuffer.Count > 0)
                         {
@@ -76,14 +76,14 @@ namespace TIES322_udp_app
                         RaiseOnDeliver(InvokeReason.Receiver, str);
                         RaiseOnDeliver(InvokeReason.Debug, "Sent ACK #" + receiverSeq.ToString());
                         RdtSend(rdt.MakeAck(receiverSeq), true);
-                        receiverSeq = rdt.incmod(receiverSeq, 2);
+                        receiverSeq = rdt.Incmod(receiverSeq, flipBit);
                         
                     }
                     else
                     {
                         RaiseOnDeliver(InvokeReason.Debug, "Duplicate pkt. Sending ACK #"
-                            + rdt.incmod(receiverSeq, 2).ToString());
-                        RdtSend(rdt.MakeAck(rdt.incmod(receiverSeq, 2)), true);
+                            + rdt.Incmod(receiverSeq, flipBit).ToString());
+                        RdtSend(rdt.MakeAck(rdt.Incmod(receiverSeq, flipBit)), true);
                     }
                     
                 }
@@ -104,17 +104,11 @@ namespace TIES322_udp_app
         
         protected override void RdtSend(byte[] data, bool sendAsIs = false)
         {
-            if (sendAsIs)
+            if (!sendAsIs)
             {
-                base.RdtSend(data, true);
-            }
-            else
-            {
-                
-                base.RdtSend(data);
                 StartTimer(data);
-                //state = (int)STATE.WaitingForAck;
             }
+            base.RdtSend(data, sendAsIs);
         }
 
         private void StartTimer(byte[] data = null)

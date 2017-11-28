@@ -34,7 +34,7 @@ namespace TIES322_udp_app
         {
             this.senderSocket = senderSocket;
             this.receiverSocket = receiverSocket;
-            //this.OnSend += new HandleDatagramDelegate(this.Send);
+            
 
         }
         public async void Send(byte[] datagram)
@@ -97,7 +97,7 @@ namespace TIES322_udp_app
             return input;
         }
         
-        public void Close()
+        public void Stop()
         {
            // try
            // {
@@ -112,8 +112,8 @@ namespace TIES322_udp_app
            // }
            // finally
            // {
-           //     socket.Close();
-           //} 
+           //     
+           // } 
         }
     }
     public class RdtUtils
@@ -137,6 +137,10 @@ namespace TIES322_udp_app
             string ackNackString = isNack ? "NACK" : "ACK";
             return MakeDatagram(Encoding.UTF8.GetBytes(ackNackString), seqNum);
         }
+        public byte[] MakeResendRequest(int seqNum)
+        {
+            return MakeDatagram(Encoding.UTF8.GetBytes("SREPEAT"), seqNum);
+        }
         public string GetDatagramContentString(byte[] datagram)
         {
             return Encoding.UTF8.GetString(new List<byte>(datagram).GetRange(1, datagram.Length - 2).ToArray());
@@ -155,7 +159,7 @@ namespace TIES322_udp_app
         }
         //I started this with meaning to use example protocol, hence ack packets are
         //identified by string comparison... How I regret that choice. Results in 
-        //annoying code and corner cases where message "ACK" will break this prog :(
+        //annoying code and corner cases where message "ACK" will break this prog :/
         public bool IsAck(byte[] datagram)
         {
             return GetDatagramContentString(datagram) == "ACK" ? true : false;
@@ -164,6 +168,10 @@ namespace TIES322_udp_app
         {
             //return !IsAck(datagram);
             return GetDatagramContentString(datagram) == "NACK" ? true : false;
+        }
+        public bool IsRepeatRequest(byte[] datagram)
+        {
+            return GetDatagramContentString(datagram) == "SREPEAT" ? true : false;
         }
         private byte GetCRC8Chksum(byte[] input)
         {
@@ -177,15 +185,15 @@ namespace TIES322_udp_app
             byte tmp2 = GetCRC8Chksum(tmp);
             return (tmp2 == chksum);
         }
-        public int incmod(int from, int window)
+        public int Incmod(int from, int window)
         {
             return from + 1 == window ? 0 : from + 1;
         }
-        public int decmod(int from,int window)
+        public int Decmod(int from, int window)
         {
             return from - 1 < 0 ? window - 1 : from - 1;
         }
-        public int distmod(int from, int to, int window)
+        public int Distmod(int from, int to, int window)
         {
             /* |-----window-----|
              *  -->to    from---
@@ -197,10 +205,26 @@ namespace TIES322_udp_app
             int n = 0;
             while(from != to)
             {
-                from = incmod(from, window);
+                from = Incmod(from, window);
                 n++;
             }
             return n;
+        }
+        /// <summary>
+        /// Dumb brute force method to check if seq is in range. 
+        /// </summary>
+        /// <param name="seq">Seq number to check</param>
+        /// <param name="range_begin"></param>
+        /// <param name="range_end"></param>
+        /// <returns></returns>
+        public bool IsSeqInRange(byte seq, byte range_begin, byte range_end)
+        {
+            while(range_begin != range_end)
+            {
+                if (range_begin == seq) return true;
+                range_begin = (byte)(range_begin + 1);
+            }
+            return false;
         }
     }
 }

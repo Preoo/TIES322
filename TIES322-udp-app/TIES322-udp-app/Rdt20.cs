@@ -19,6 +19,7 @@ namespace TIES322_udp_app
         protected int senderSeq = 0;
         protected int receiverSeq = 0;
         protected byte[] previouslySentDatagram;
+        protected int flipBit = 2;
 
         public event DeliverData OnDeliver;
         public event HandleDatagramDelegate OnReceive;
@@ -34,7 +35,7 @@ namespace TIES322_udp_app
         }
         public Rdt20()
         {
-
+            
         }
         private void RdtReceive(byte[] datagram)
         {
@@ -53,7 +54,7 @@ namespace TIES322_udp_app
                     if (messageBuffer.Count > 0)
                     {
 
-                        senderSeq = rdt.incmod(senderSeq, 2); //toggle seq bit by using window of 2. 0->1 || 1->0
+                        senderSeq = rdt.Incmod(senderSeq, flipBit); //toggle seq bit by using window of 2. 0->1 || 1->0
                         RaiseOnDeliver(InvokeReason.Debug, "Sending 1st queued message");
                         ToggleState();
                         RdtSend(messageBuffer[0]);
@@ -62,7 +63,7 @@ namespace TIES322_udp_app
                     else
                     {
                         ToggleState();
-                        senderSeq = rdt.incmod(senderSeq, 2); //toggle seq bit by using window of 2. 0->1 || 1->0
+                        senderSeq = rdt.Incmod(senderSeq, flipBit); //toggle seq bit by using window of 2. 0->1 || 1->0
                         RaiseOnDeliver(InvokeReason.Debug, "Received correct ACK, switching states to #" + state.ToString());
                     }
                 }
@@ -84,7 +85,7 @@ namespace TIES322_udp_app
                 else if (isOk && receiverSeq != seqDatagram)
                 {
                     //Unexpected seqnum
-                    RdtSend(rdt.MakeAck(rdt.incmod(receiverSeq, 2)),true);
+                    RdtSend(rdt.MakeAck(rdt.Incmod(receiverSeq, flipBit)),true);
                     RaiseOnDeliver(InvokeReason.Debug, "Received out-of-order, sending ACK #" 
                         + receiverSeq.ToString());
                 }
@@ -92,21 +93,29 @@ namespace TIES322_udp_app
                 {
                     //Received new message
                     RaiseOnDeliver(InvokeReason.Receiver, str);
-                    receiverSeq = rdt.incmod(receiverSeq, 2);
+                    receiverSeq = rdt.Incmod(receiverSeq, flipBit);
                     RdtSend(rdt.MakeAck(seqDatagram),true);
                 }
             }
         }
 
-
+        /// <summary>
+        /// Encodes message string (utf8) to byte[] and sends it to socket
+        /// </summary>
+        /// <param name="message">Message string from caller</param>
         public void RdtSend(string message)
-        {
-            
-
+        {            
             RdtSend(Encoding.UTF8.GetBytes(message), false);
             RaiseOnDeliver(InvokeReason.Sender, message);
-
         }
+        /// <summary>
+        /// Sends byte[] to socket.
+        /// Creates datagram with frame format given as example in demonstration example.
+        /// Switches state to waitingforack. 
+        /// Set sendAsIs when sending/resending valid datagram/frame.
+        /// </summary>
+        /// <param name="data">Byte array to be sent over socket</param>
+        /// <param name="sendAsIs">Boolen: true - datagram has been contructed before, false - construct new datagram and send it</param>
         protected virtual async void RdtSend(byte[] data, bool sendAsIs = false)
         {
             if (sendAsIs)
@@ -120,7 +129,7 @@ namespace TIES322_udp_app
                     case (int)STATE.WaitingCallFromAboveOrBelow:
                         {
                             byte[] newDatagram = rdt.MakeDatagram(data, senderSeq);
-                            //await Task.Run(() => { socket.Send(newDatagram); });
+                            //await Task.Run(() => { socket.Send(newDatagram); }); //Timing issues
                             socket.Send(newDatagram);
                             previouslySentDatagram = newDatagram;
                             state = (int)STATE.WaitingForAck;

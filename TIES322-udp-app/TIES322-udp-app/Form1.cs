@@ -93,16 +93,9 @@ namespace TIES322_udp_app
         
         private void sendButton_Click(object sender, EventArgs e)
         {
-            rdtProtocol.RdtSend(textBox_msg.Text);
-            //SetStateAndSend(Encoding.ASCII.GetBytes(textBox_msg.Text));
-            
+            rdtProtocol.RdtSend(textBox_msg.Text);                       
         }
-        /*
-        public static void PostMessage(string msg = "")
-        {
-            
-        }
-        */
+
         private void numericUpDown_droppacket_ValueChanged(object sender, EventArgs e)
         {
             Config.packetDropProp = (int)numericUpDown_droppacket.Value;
@@ -175,7 +168,11 @@ namespace TIES322_udp_app
 
         private void radioButton_selective_CheckedChanged(object sender, EventArgs e)
         {
+            rdtProtocol = new SelectiveRepeat(client);
 
+            rdtProtocol.OnDeliver += HandlerMessageFromRdt;
+
+            sendButton.Enabled = true;
         }
 
         private void button1_Click(object sender, EventArgs e)
