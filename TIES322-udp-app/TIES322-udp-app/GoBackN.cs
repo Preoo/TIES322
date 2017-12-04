@@ -22,8 +22,8 @@ namespace TIES322_udp_app
         
         int gbnTimeoutIntervalMs = 2000;
         private byte[] gbnLatestAck;
-        List<byte[]> gbnSendQueue;
-        byte[][] gbnSendArray;
+        //List<byte[]> gbnSendQueue;
+        //byte[][] gbnSendArray;
         Dictionary<int, byte[]> gbnSendDictionary;
 
         public event HandleDatagramDelegate OnReceive;
@@ -41,8 +41,8 @@ namespace TIES322_udp_app
             socket.OnReceive += RdtReceive;
 
             gbnSendDictionary = new Dictionary<int, byte[]>();
-            gbnSendArray = new byte[gbnWindowSize - 1][];
-            gbnSendQueue = new List<byte[]>();
+            //gbnSendArray = new byte[gbnWindowSize - 1][];
+            //gbnSendQueue = new List<byte[]>();
             gbnLatestAck = rdt.MakeAck(0);
 
     }
@@ -136,7 +136,7 @@ namespace TIES322_udp_app
         {            
 
             RdtSend(Encoding.UTF8.GetBytes(message), false);
-            OnDeliver?.Invoke(InvokeReason.Sender, message); //TODO: Check sending window size before calling this to avoid confusion
+            OnDeliver?.Invoke(InvokeReason.Sender, message);
 
         }
         private async void RdtSend(byte[] data, bool isOldDatagram = false)
@@ -214,7 +214,8 @@ namespace TIES322_udp_app
                     i = (i + 1) % gbnWindowSize;
 
                 }
-                
+                //async and recursion... fine if stack won't explode.
+                //TODO: Look into turning this mess to a loop
                 await Timertimeout(token);
                 
             }

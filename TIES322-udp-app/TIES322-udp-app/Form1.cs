@@ -27,25 +27,14 @@ namespace TIES322_udp_app
     }
 
     public partial class Form1 : Form
-    {
-        //public event HandleDatagramDelegate OnSend;
-        //System.Net.Sockets.UdpClient socket;
-        //public byte[] previouslySentNoChecksum;
-        //crc8lib crc8;
-        //List<byte[]> buffer = new List<byte[]>();
-        //byte[][] gbnSendWindow = new byte[(int)Config.gbnWindowSize][];
-        //Dictionary<int, byte[]> gbnSendWindow = new Dictionary<int, byte[]>();
+    {       
         VirtualSocket client;
         IRdtProtocol rdtProtocol;
-        
-        //public event HandleDatagramDelegate OnReceive;
-        //public event HandleDatagramDelegate OnSend;
-        //public event DeliverData OnDeliver;
-
+                
         public Form1()
         {
             InitializeComponent();
-            //crc8 = new crc8lib();
+            
             try
             {
                 /* 
@@ -93,7 +82,8 @@ namespace TIES322_udp_app
         
         private void sendButton_Click(object sender, EventArgs e)
         {
-            rdtProtocol.RdtSend(textBox_msg.Text);                       
+            rdtProtocol.RdtSend(textBox_msg.Text);
+            textBox_msg.Clear();                     
         }
 
         private void numericUpDown_droppacket_ValueChanged(object sender, EventArgs e)
