@@ -128,8 +128,7 @@ namespace TIES322_udp_app
                 {
                     case (int)STATE.WaitingCallFromAboveOrBelow:
                         {
-                            byte[] newDatagram = rdt.MakeDatagram(data, senderSeq);
-                            //await Task.Run(() => { socket.Send(newDatagram); }); //Timing issues
+                            byte[] newDatagram = rdt.MakeDatagram(data, senderSeq);                           
                             socket.Send(newDatagram);
                             previouslySentDatagram = newDatagram;
                             state = (int)STATE.WaitingForAck;
@@ -146,7 +145,6 @@ namespace TIES322_udp_app
         }
         protected void ToggleState()
         {
-            //state == 1 ? state = 0 : state = 1; Compiler complains?
             if(state == 1)
             {
                 state = 0;

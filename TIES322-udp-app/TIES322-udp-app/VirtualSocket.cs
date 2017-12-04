@@ -80,7 +80,7 @@ namespace TIES322_udp_app
                     }
                 }
             }
-            catch (ObjectDisposedException e)
+            catch (ObjectDisposedException)
             {
                 /*Short search revealed no easy way to cancel 
                   on going ReceiveAsync other than to catch this exception...*/

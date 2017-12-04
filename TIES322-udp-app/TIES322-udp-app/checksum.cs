@@ -4,25 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Data.HashFunction.CRCStandards;
-
-namespace TIES322_udp_app
-{
-    static class checksum
-    {
-        
-        public static byte[] InsertBitError(byte[] input)
-        {
-            Random rnd = new Random();
-            int byteIndex = rnd.Next(input.Count());
-            byte mask = (byte)(1 << rnd.Next(8));
-            input[byteIndex] ^= mask;
-            
-            return input;
-        }
-    }
-    public class crc8lib
-    {
-        /*The MIT License (MIT)
+/*The MIT License (MIT)
 
 Copyright (c) 2014 Data.HashFunction Developers
 
@@ -43,11 +25,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.*/
+namespace TIES322_udp_app
+{/*
+    static class checksum
+    {
+        
+        public static byte[] InsertBitError(byte[] input)
+        {
+            Random rnd = new Random();
+            int byteIndex = rnd.Next(input.Count());
+            byte mask = (byte)(1 << rnd.Next(8));
+            input[byteIndex] ^= mask;
+            
+            return input;
+        }
+    }
+    public class crc8lib
+    {
+        
+
         CRC8 crc8instance;
 
         //byte[] checksum;
         public crc8lib() {
-            /*crc8 lib*/
+            
             //crc8instance = new CRC8();
             
         }
@@ -64,5 +65,5 @@ SOFTWARE.*/
             byte tmp2 = GetCRC8Chksum(tmp);
             return (tmp2 == chksum);
         }
-    }
+    }*/
 }

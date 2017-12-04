@@ -22,8 +22,7 @@ namespace TIES322_udp_app
         
         int gbnTimeoutIntervalMs = 2000;
         private byte[] gbnLatestAck;
-        //List<byte[]> gbnSendQueue;
-        //byte[][] gbnSendArray;
+
         Dictionary<int, byte[]> gbnSendDictionary;
 
         public event HandleDatagramDelegate OnReceive;
@@ -41,11 +40,9 @@ namespace TIES322_udp_app
             socket.OnReceive += RdtReceive;
 
             gbnSendDictionary = new Dictionary<int, byte[]>();
-            //gbnSendArray = new byte[gbnWindowSize - 1][];
-            //gbnSendQueue = new List<byte[]>();
             gbnLatestAck = rdt.MakeAck(0);
 
-    }
+        }
 
         private void RdtReceive(byte[] datagram)
         {
@@ -179,6 +176,7 @@ namespace TIES322_udp_app
                         else
                         {
                             //start new timer
+                            //TODO: Check if this leaks resources
                             CancellationTokenSource aCTS = new CancellationTokenSource();
                             cts = aCTS;
                             await Timertimeout(aCTS.Token);
@@ -202,10 +200,11 @@ namespace TIES322_udp_app
         }
         private async Task Timertimeout(CancellationToken token)
         {
-            await Task.Delay(gbnTimeoutIntervalMs, token);
-            if (!token.IsCancellationRequested)
+            
+            while (!token.IsCancellationRequested)
             {
-                //resend pending packets/unack'd
+                await Task.Delay(gbnTimeoutIntervalMs, token);
+                if (token.IsCancellationRequested) break;
                 OnDeliver?.Invoke(InvokeReason.Debug, "Timer timeout");
                 int i = gbnBase;
                 while (i != gbnNextSeqNum)
@@ -214,24 +213,13 @@ namespace TIES322_udp_app
                     i = (i + 1) % gbnWindowSize;
 
                 }
-                //async and recursion... fine if stack won't explode.
-                //TODO: Look into turning this mess to a loop
-                await Timertimeout(token);
+                
                 
             }
-            else
-            {
-                OnDeliver?.Invoke(InvokeReason.Debug, "Timer is canceled");
-            }
+            //Timer cancelation has been requested
+            OnDeliver?.Invoke(InvokeReason.Debug, "Timer is canceled");
+            
         }
-        /*
-        private void TimerReEntry()
-        {
-            CancellationTokenSource aCTS = new CancellationTokenSource();
-            cts = aCTS;
-            await Timertimeout(aCTS.Token);
-        }    
-        */
         public void CancelPending()
         {
             cts.Cancel();

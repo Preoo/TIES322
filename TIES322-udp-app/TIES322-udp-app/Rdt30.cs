@@ -154,7 +154,6 @@ namespace TIES322_udp_app
             //timer.Tick -= FireTimer;      
             scheduledDatagram.timerSeq = -1;
             scheduledDatagram.data = null;
-            //timer.Dispose();
         }
 
         public struct TimerDatagram

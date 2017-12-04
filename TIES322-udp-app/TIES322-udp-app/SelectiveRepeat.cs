@@ -28,9 +28,7 @@ namespace TIES322_udp_app
         //This is to check if windowsize check is working at all.
         //Window size here set as is, we substract 1 in methods.
         private byte srWindowSize = 4;
-        private int srTimeoutInterval = 2000;
-
-        //public delegate void ActionForBufferedDelegate(IEnumerable items);
+        private int srTimeoutInterval = 2000;        
 
         public event DeliverData OnDeliver;
         public event HandleDatagramDelegate OnReceive;
@@ -52,10 +50,12 @@ namespace TIES322_udp_app
         {
             if (check == null) await SRTimer(token);
         }
+
         private void CancelTimer()
         {
             cts.Cancel();
         }
+
         private void RdtReceive(byte[] datagram)
         {
             bool isOk = rdt.IsOk(datagram);
@@ -152,12 +152,7 @@ namespace TIES322_udp_app
                 OnDeliver?.Invoke(InvokeReason.Receiver, rdt.GetDatagramContentString(i));
             });
         }
-        /*
-        private void SendBufferedDatagramsFromBucket(List<byte[]> items)
-        {
-            OnDeliver?.Invoke(InvokeReason.Debug, "Sending buffered messages");
-        }
-        */
+
         private byte ProcessValidBufferedSequence(byte srStartSeq, Action<List<byte[]>> f = null)
         {
             //Check for valid sequence
@@ -207,7 +202,8 @@ namespace TIES322_udp_app
                 srNextSeqNum++;
             }
         }
-        /*Lightweight single timer to simulate multible logical timers with timestamps and intervals*/
+
+        /*Lightweight single timer to simulate multiple logical timers with timestamps and intervals*/
         private async Task SRTimer(CancellationToken token)
         {
             while (!token.IsCancellationRequested)

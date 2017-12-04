@@ -83,7 +83,8 @@ namespace TIES322_udp_app
         private void sendButton_Click(object sender, EventArgs e)
         {
             rdtProtocol.RdtSend(textBox_msg.Text);
-            textBox_msg.Clear();                     
+            textBox_msg.Clear();
+            textBox_msg.Focus();                     
         }
 
         private void numericUpDown_droppacket_ValueChanged(object sender, EventArgs e)
