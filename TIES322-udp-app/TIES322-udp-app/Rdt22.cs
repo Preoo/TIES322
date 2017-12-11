@@ -1,21 +1,35 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Timers;
 
 namespace TIES322_udp_app
 {
     internal class Rdt22 : Rdt20, IRdtProtocol
     {
-        protected static Timer timer;
-
+        private enum STATE22
+        {           
+            wait0s,           
+            wait1s,          
+            error0,           
+            error1,
+            wait0r,
+            wait1r
+        }
+        private static System.Windows.Forms.Timer timer;
+        protected int seq;
+        //protected byte[][] buffer;
         public Rdt22(VirtualSocket client):base()
         {
             socket = client;
             rdt = new RdtUtils();
             socket.Start();
-
+            state = (int)STATE22.wait0r;
             socket.OnReceive += RdtReceive;
-
-            timer = new Timer();
+            previouslySentDatagram = null;
+            seq = 0;
+            //buffer = new byte[2][];
+            timer = new System.Windows.Forms.Timer();
+            timer.Enabled = false;
         }
 
         private void RdtReceive(byte[] datagram)
@@ -25,72 +39,188 @@ namespace TIES322_udp_app
             bool isAck = rdt.IsAck(datagram);
             bool isNack = rdt.IsNack(datagram);
             int seqDatagram = rdt.GetSeqNum(datagram);
-            // TODO: Figure out a better way to do this! Perhaps with seq numbering?
+
+            if (isOk) RaiseOnDeliver(InvokeReason.Debug, "Received seq# " + seqDatagram.ToString());
+            if (!isOk) RaiseOnDeliver(InvokeReason.Debug, "Received corrupted");
+            //First version, cleanup later (if at all)
             switch (state)
             {
-                case 0:
+                case (int)STATE22.wait0s:
+                    if(isOk && !isNack && seqDatagram == 0)
                     {
-                        if(!isOk || isNack)
-                        {
-                            RdtSend(rdt.MakeAck(receiverSeq, true), true);
-                            RaiseOnDeliver(InvokeReason.Debug, "Received corrupted, sending NACK");
-                        }
-                        else
-                        {
-                            RaiseOnDeliver(InvokeReason.Receiver, str);
-                        }
-                        break;
+                        //proper message
+                        state = (int)STATE22.wait1r;
+                        RaiseOnDeliver(InvokeReason.Receiver, str);
+                        seq = 1;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait0s --> wait1r | seq: 1");
                     }
-                case 1:
+                    if(isNack || !isOk)
                     {
-                        if(!isOk || isNack)
-                        {
-                            RdtSend(previouslySentDatagram, true);
-                            StartTimer();
-                        }
-                        break;
+                        state = (int)STATE22.error0;
+                        RdtSend(previouslySentDatagram, true);
+                        StartErrorRecovTimer();
+                        RaiseOnDeliver(InvokeReason.Debug, "wait0s --> error0 | seq: 0");
                     }
+                    break;
+                case (int)STATE22.wait1s:
+                    if (isOk && !isNack && seqDatagram == 1)
+                    {
+                        //proper message
+                        state = (int)STATE22.wait0r;
+                        RaiseOnDeliver(InvokeReason.Receiver, str);
+                        seq = 0;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait1s --> wait0r | seq: 0");
+                    }
+                    if (isNack || !isOk)
+                    {
+                        state = (int)STATE22.error1;
+                        RdtSend(previouslySentDatagram, true);
+                        StartErrorRecovTimer();
+                        RaiseOnDeliver(InvokeReason.Debug, "wait1s --> error1 | seq: 1");
+                    }
+                    break;
+                case (int)STATE22.wait0r:
+                    if (isOk && !isNack && seqDatagram == 0)
+                    {
+                        //proper message
+                        state = (int)STATE22.wait1r;
+                        RaiseOnDeliver(InvokeReason.Receiver, str);
+                        seq = 1;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait0r --> wait1r | seq: 1");
+                    }
+                    if ((isNack && seqDatagram == 1) || !isOk)
+                    {
+                        RdtSend(rdt.MakeAck(seq, true), true);
+                        RaiseOnDeliver(InvokeReason.Debug, "wait0r --> wait0r | seq: 0");
+                    }
+                    break;
+                case (int)STATE22.wait1r:
+                    if (isOk && !isNack && seqDatagram == 1)
+                    {
+                        //proper message
+                        state = (int)STATE22.wait0r;
+                        RaiseOnDeliver(InvokeReason.Receiver, str);
+                        seq = 0;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait1r --> wait0r | seq: 0");
+                    }
+                    if ((isNack && seqDatagram == 0) || !isOk)
+                    {
+                        RdtSend(rdt.MakeAck(seq, true), true);
+                        RaiseOnDeliver(InvokeReason.Debug, "wait1r --> wait1r | seq: 1");
+                    }
+                    break;
+                case (int)STATE22.error0:
+                    if(!isOk || isNack)
+                    {
+                        RdtSend(previouslySentDatagram, true);
+                        StartErrorRecovTimer();
+                        RaiseOnDeliver(InvokeReason.Debug, "error0 --> error0");
+                    }
+                    break;
+                case (int)STATE22.error1:
+                    if (!isOk || isNack)
+                    {
+                        RdtSend(previouslySentDatagram, true);
+                        StartErrorRecovTimer();
+                        RaiseOnDeliver(InvokeReason.Debug, "error1 --> error1");
+                    }
+                    break;
+                default:
+                    RaiseOnDeliver(InvokeReason.Error, "Fatal state error: "
+                        + Enum.GetName(typeof(STATE22), state));
+                    break;
             }
-        }
-        protected override void RdtSend(byte[] data, bool sendAsIs = false)
-        {
-            if (state == 0)
+            /*if (isOk)
             {
-                base.RdtSend(data, sendAsIs);
-                state = (int)STATE.WaitingForAck;
-                StartTimer();
+                if (isNack)
+                {
+                    
+                }
+                
+                else
+                {
+                    seq = rdt.Incmod(seq, flipBit);                 
+                    RaiseOnDeliver(InvokeReason.Receiver, str);
+                }
             }
             else
             {
-                RaiseOnDeliver(InvokeReason.Error, "In Error state, try again later");
-            }
-            //StartTimer();
-            /* Given delay, lossless channel:
-             * We can assume almost instant delivery time
-             * meaning, short timer interval is a possiblity here.
-             * 
-             * Only way I can imagine how to implement NACK-only with alternating bit protocol
-             * is to have protocol retransmit on NACK or corrupt... This approach makes sweeping assumption
-             * on traffic channel properties, such as instant roundtrip delay and biterrors only errormode.
-             * Otherwise throttling on sender is required to be atleast RTT
-             */
+                //Start timer to prevent sending while in error recovery
+                StartErrorRecovTimer();
+                RdtSend(rdt.MakeAck(seq, true), true);
+            }*/
+            
+            
         }
 
-        protected virtual void StartTimer()
+        private void StartErrorRecovTimer()
         {
-            state = (int)STATE.WaitingForAck;
             
-            timer.AutoReset = false;
-            timer.Interval = 500.0;
-            timer.Elapsed += OnTimerElapsed;
+            timer.Stop();
+            timer.Interval = 200;
+            
+            timer.Tick -= FireTimer;
+            timer.Tick += FireTimer;
             timer.Start();
         }
 
-        private void OnTimerElapsed(object sender, ElapsedEventArgs e)
+        private void FireTimer(object sender, EventArgs e)
         {
-            state = (int)STATE.WaitingCallFromAboveOrBelow;
+            switch (state)
+            {
+                case (int)STATE22.error0:
+                    state = (int)STATE22.wait0s;
+                    RaiseOnDeliver(InvokeReason.Debug, "Timer fired in error0 --> wait0s");
+                    break;
+                case (int)STATE22.error1:
+                    state = (int)STATE22.wait1s;
+                    RaiseOnDeliver(InvokeReason.Debug, "Timer fired in error1 --> wait1s");
+                    break;
+                default:
+                    RaiseOnDeliver(InvokeReason.Error, "Unexpected state while timer fired: " 
+                        + Enum.GetName(typeof(STATE22),state));
+                    break;
+            }
             timer.Stop();
-            //RaiseOnDeliver(InvokeReason.Debug, "Timer");
+            timer.Tick -= FireTimer;
+        }
+
+        protected override void RdtSend(byte[] data, bool sendAsIs = false)
+        {
+            if (sendAsIs)
+            {
+                base.RdtSend(data, true);
+            }
+            else
+            {
+                byte[] datagram;
+                switch (state)
+                {
+                    case (int)STATE22.wait0s:
+                    case (int)STATE22.wait0r:
+                        datagram = rdt.MakeDatagram(data, seq);
+                        base.RdtSend(datagram, true);
+                        previouslySentDatagram = datagram;
+                        seq = 1;
+                        state = (int)STATE22.wait1s;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait0s|wait0r --> wait1s | seq: 1");
+                        break;
+                    case (int)STATE22.wait1s:
+                    case (int)STATE22.wait1r:
+                        datagram = rdt.MakeDatagram(data, seq);
+                        base.RdtSend(datagram, true);
+                        previouslySentDatagram = datagram;
+                        seq = 0;
+                        state = (int)STATE22.wait0s;
+                        RaiseOnDeliver(InvokeReason.Debug, "wait1s|wait1r --> wait0s | seq: 0");
+                        break;
+                    case (int)STATE22.error0:
+                    case (int)STATE22.error1:
+                        RaiseOnDeliver(InvokeReason.Error, "Previous send operation has errored, wait while we recover.");
+                        //TODO: Automatic queue and resending queued items.
+                        break;
+                }
+            }
         }
     }
 }
