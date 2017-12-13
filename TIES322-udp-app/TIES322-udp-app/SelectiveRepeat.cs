@@ -10,7 +10,7 @@ using System.Collections;
 
 namespace TIES322_udp_app
 {
-    internal class SelectiveRepeat : IRdtProtocol
+    internal class SelectiveRepeat : IRdtProtocol, IDisposable
     {
         private CancellationTokenSource cts;
         private Task check;
@@ -48,6 +48,7 @@ namespace TIES322_udp_app
 
         private async void StartDumbTimer(CancellationToken token)
         {
+            //Can't why this is here but it doesn't matter.
             if (check == null) await SRTimer(token);
         }
 
@@ -142,8 +143,8 @@ namespace TIES322_udp_app
 
         private string PrintSRDebugInfo()
         {
-            return " srSendBase = " + srSendBase.ToString() + " srRcvBase = " 
-                + srRcvBase.ToString() + " srNextSeqNum = " + srNextSeqNum.ToString() + Environment.NewLine;
+            return " srSendBase = " + srSendBase.ToString() + " srRcvBase = "
+                + srRcvBase.ToString() + " srNextSeqNum = " + srNextSeqNum.ToString();
         }
 
         private void DeliverDataSequenceToUpperLayer(List<byte[]> items)
@@ -230,6 +231,11 @@ namespace TIES322_udp_app
                     } 
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            ((IDisposable)cts).Dispose();
         }
     }
 }

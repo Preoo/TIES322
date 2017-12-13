@@ -17,7 +17,7 @@ using System.Data.HashFunction.CRCStandards;
 
 namespace TIES322_udp_app
 {
-    class VirtualSocket : EventArgs
+    class VirtualSocket : EventArgs, IDisposable
     {
         int senderSocket, receiverSocket;
         UdpClient socket;
@@ -114,6 +114,11 @@ namespace TIES322_udp_app
            // {
            //     
            // } 
+        }
+
+        public void Dispose()
+        {
+            ((IDisposable)socket).Dispose();
         }
     }
     public class RdtUtils
