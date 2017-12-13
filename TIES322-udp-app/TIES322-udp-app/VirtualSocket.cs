@@ -49,6 +49,7 @@ namespace TIES322_udp_app
         public void Start()
         {
             listen = true;
+            if (socket != null)  throw new NotImplementedException("Protocol switching mid usage is not implemented as of now, sorry. ");
             socket = new UdpClient(senderSocket);
             Receive();
         }
