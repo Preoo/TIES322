@@ -200,7 +200,7 @@ namespace TIES322_udp_app
                 {                  
                     OnDeliver?.Invoke(InvokeReason.Debug, "Message Buffered" + PrintSRDebugInfo());
                 }
-                srNextSeqNum++;
+                srNextSeqNum++; //pre-increment is more efficient here? edit: compiler optimization -> no difference
             }
         }
 
@@ -234,7 +234,7 @@ namespace TIES322_udp_app
         }
 
         public void Dispose()
-        {
+        {           
             ((IDisposable)cts).Dispose();
         }
     }

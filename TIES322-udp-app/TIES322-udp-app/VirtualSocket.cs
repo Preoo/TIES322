@@ -119,7 +119,8 @@ namespace TIES322_udp_app
 
         public void Dispose()
         {
-            ((IDisposable)socket).Dispose();
+            socket.Close(); //calls .dispose() for socket internally.
+            //((IDisposable)socket).Dispose();
         }
     }
     public class RdtUtils

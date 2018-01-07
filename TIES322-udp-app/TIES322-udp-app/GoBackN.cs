@@ -158,7 +158,7 @@ namespace TIES322_udp_app
                         gbnSendDictionary[gbnNextSeqNum] = newDatagram;
 
                         socket.Send(gbnSendDictionary[gbnNextSeqNum]);                       
-
+                        //simplify with pre-increment and combine following operations
                         gbnNextSeqNum = gbnNextSeqNum + 1;
                         gbnNextSeqNum = gbnNextSeqNum % gbnWindowSize;
 
